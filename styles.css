@@ -1,0 +1,55 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #000;
+  color: #9aa0a6;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage {
+  position: relative;
+  line-height: 0;
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #000;
+  box-shadow: 0 0 0 1px #1e2226, 0 12px 40px rgba(0, 0, 0, 0.8);
+}
+
+/* Invisible touch zones: left/right halves steer, centre fires. */
+#pad {
+  position: absolute;
+  inset: 0;
+  display: none;
+  touch-action: none;
+}
+body.touch #pad { display: flex; }
+#pad > div { flex: 1; }
+#pad-left, #pad-right { flex: 2; }
+
+#hint {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  max-width: 96vw;
+  color: #5c636a;
+}
+body.touch #hint { display: none; }
+#hint b { color: #8b9197; font-weight: 600; }

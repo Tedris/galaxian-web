@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Galaxian</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Galaxian (Namco, 1979) — a browser clone rendered on canvas.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="screen" width="224" height="256" aria-label="Galaxian game screen"></canvas>
+  <div id="pad" aria-hidden="true">
+    <div id="pad-left"></div>
+    <div id="pad-fire"></div>
+    <div id="pad-right"></div>
+  </div>
+</div>
+<div id="hint">
+  <span><b>&larr; &rarr;</b> / A D move</span>
+  <span><b>Space</b> / <b>Z</b> fire</span>
+  <span><b>1</b> one player &nbsp; <b>2</b> two players</span>
+  <span><b>P</b> pause</span>
+  <span><b>M</b> sound</span>
+</div>
+<script src="src/sprites.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/game.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
