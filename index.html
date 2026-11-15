@@ -10,11 +10,13 @@
 <body>
 <div id="stage">
   <canvas id="screen" width="224" height="256" aria-label="Galaxian game screen"></canvas>
-  <div id="pad" aria-hidden="true">
-    <div id="pad-left"></div>
-    <div id="pad-fire"></div>
-    <div id="pad-right"></div>
+</div>
+<div id="pad" aria-hidden="true">
+  <div id="pad-steer">
+    <div class="pad-btn" id="pad-left">&#9664;</div>
+    <div class="pad-btn" id="pad-right">&#9654;</div>
   </div>
+  <div class="pad-btn" id="pad-fire">FIRE</div>
 </div>
 <div id="hint">
   <span><b>&larr; &rarr;</b> / A D move</span>

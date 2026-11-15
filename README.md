@@ -17,7 +17,7 @@ files, so `file://` needs no server.
 ## Play on a phone
 
 Live at <https://tedris.github.io/galaxian-web/> (GitHub Pages, `main`). Touch
-devices get a left / fire / right pad across the lower third of the screen.
+devices get a controller under the screen: steer arrows on the left, FIRE on the right.
 
 For an unpublished build, `python3 -m http.server 8000` binds all interfaces,
 so a phone on the same Wi-Fi can open `http://<this-machine>:8000/`.
@@ -33,7 +33,8 @@ so a phone on the same Wi-Fi can open `http://<this-machine>:8000/`.
 | `P` | Pause |
 | `M` | Mute |
 
-On touch devices the lower third of the screen becomes a left / fire / right pad.
+On touch devices a controller appears under the screen: `◀` `▶` steer on the
+left, `FIRE` on the right.
 
 ## The game, as modelled here
 

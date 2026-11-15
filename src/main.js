@@ -4,6 +4,7 @@
 
   var canvas = document.getElementById('screen');
   var g = canvas.getContext('2d', { alpha: false });
+  var pad = document.getElementById('pad');
   var W = 224, H = 256, STEP = 1 / 60;
 
   canvas.width = W;
@@ -14,14 +15,18 @@
   GX.gfx.build();
   GX.game.init();
 
+  var TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  if (TOUCH) document.body.classList.add('touch');
+
   // ------------------------------------------------------------------ scale
 
   function fit() {
     var availW = window.innerWidth - 16;
-    var availH = window.innerHeight - (document.body.classList.contains('touch') ? 16 : 56);
+    var availH = window.innerHeight - (document.body.classList.contains('touch') ? pad.offsetHeight + 24 : 56);
     var s = Math.max(1, Math.floor(Math.min(availW / W, availH / H)));
     canvas.style.width = (W * s) + 'px';
     canvas.style.height = (H * s) + 'px';
+    pad.style.width = (W * s) + 'px';
   }
   window.addEventListener('resize', fit);
   fit();
@@ -65,17 +70,21 @@
     GX.game.setKey('fire', false);
   });
 
-  // Touch: left/right thirds steer and shoot.
-  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-    document.body.classList.add('touch');
+  // Controller buttons: steer arrows on the left, FIRE on the right.
+  if (TOUCH) {
     var bind = function (el, name) {
       var on = function (ev) {
         ev.preventDefault();
+        el.classList.add('on');
         firstGesture();
         GX.game.setKey(name, true);
         if (GX.game.state() === 'attract') GX.game.start(1);
       };
-      var off = function (ev) { ev.preventDefault(); GX.game.setKey(name, false); };
+      var off = function (ev) {
+        ev.preventDefault();
+        el.classList.remove('on');
+        GX.game.setKey(name, false);
+      };
       el.addEventListener('touchstart', on, { passive: false });
       el.addEventListener('touchend', off, { passive: false });
       el.addEventListener('touchcancel', off, { passive: false });
