@@ -14,6 +14,14 @@ python3 -m http.server 8000   # then open http://localhost:8000/
 Opening `index.html` directly also works — the scripts are classic (non-module)
 files, so `file://` needs no server.
 
+## Play on a phone
+
+Live at <https://tedris.github.io/galaxian-web/> (GitHub Pages, `main`). Touch
+devices get a left / fire / right pad across the lower third of the screen.
+
+For an unpublished build, `python3 -m http.server 8000` binds all interfaces,
+so a phone on the same Wi-Fi can open `http://<this-machine>:8000/`.
+
 ## Controls
 
 | Key | Action |
