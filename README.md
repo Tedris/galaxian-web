@@ -45,9 +45,10 @@ left, `FIRE` on the right.
 ## Run mode
 
 The arcade game is the room; a run strings rooms together. Pick your route on a
-three-column mission map, and between stages draft one of three salvaged
-upgrades. Death ends the run and converts its medals into permanent unlocks —
-the tension of the one-shot rule stays, every upgrade trades something away.
+four-column mission map — three missions plus **RETIRE** — and between stages
+draft one of three salvaged upgrades. Death banks the run's medals automatically;
+to leave with them before dying, fire on RETIRE. Every upgrade trades something
+away, so the one-shot rule's tension stays.
 
 | Mission | Field | Medals |
 | --- | --- | --- |
@@ -62,10 +63,16 @@ COLD (slow dives, −20% score), HULL (blocks one hit per round), BAIT (flagship
 kills pay an extra medal), BROKER (+50% medals), RESERVE (+2 lives, −15%
 score). Diving flagship kills always pay one medal on top.
 
-Medals also buy permanent unlocks in the shop (SWIFT, SPARE, BANKER). Meta state
-lives in `localStorage` under `galaxian-web.runmeta.v1`. The day's seed decides
-every offer and mission row, so a given date plays the same everywhere. Arcade
-mode never touches any of it — same board as always.
+Banked medals buy permanent unlocks in the shop — SWIFT (+10% speed), SPARE (+1
+life next run) and BANKER (+25% medals). The shop is on the attract screen from
+the very first launch (press `S`); until your first run banks a medal it just
+lists the prices, so the first thing to do is play a run. A run's medals live in
+memory until it ends, so retire or die to keep them — closing the tab mid-run
+ forfeits that run's medals but not the ones already banked. Unlocks apply at
+the start of the next run. Meta state lives in `localStorage` under
+`galaxian-web.runmeta.v1`; the day's seed decides every offer and mission row,
+so a given date plays the same everywhere. Arcade mode never touches any of it —
+same board as always.
 
 ## The game, as modelled here
 

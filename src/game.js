@@ -806,12 +806,18 @@
       case 'map':
         G.stateT += dt;
         if (!G.mapRow) G.mapRow = GX.run.row(G.round);
-        if (edge('left')) G.cursor = (G.cursor + 2) % 3;
-        if (edge('right')) G.cursor = (G.cursor + 1) % 3;
+        if (edge('left')) G.cursor = (G.cursor + 3) % 4;
+        if (edge('right')) G.cursor = (G.cursor + 1) % 4;
         if (edge('fire')) {
-          G.node = G.mapRow[G.cursor];
-          GX.audio.coin();
-          startRound(false);
+          if (G.cursor === 3) {         // retire: bank this run and leave
+            GX.run.endRun(G.round);
+            GX.audio.coin();
+            toAttract();
+          } else {
+            G.node = G.mapRow[G.cursor];
+            GX.audio.coin();
+            startRound(false);
+          }
         }
         break;
 
@@ -949,7 +955,7 @@
     GX.gfx.text(g, 'SELECT MISSION', CX, 10, COL.white, { align: 'center' });
     GX.gfx.text(g, 'STAGE ' + G.round, CX, 24, COL.cyan, { align: 'center' });
     GX.gfx.text(g, pad(GX.run.meta().medals, 3) + ' MEDALS', W - 8, 1, COL.yellow, { align: 'right' });
-    var xs = [37, 112, 187];
+    var xs = [28, 84, 140, 196];
     var row = G.mapRow || GX.run.row(G.round);
     for (var i = 0; i < 3; i++) {
       var n = row[i];
@@ -961,6 +967,12 @@
       }
       GX.gfx.text(g, n.reward + ' MEDALS', xs[i], 118, i === G.cursor ? COL.bright : COL.dim, { align: 'center' });
     }
+    // Fourth column retires the run, banking whatever it has earned.
+    var ret = G.cursor === 3;
+    GX.gfx.text(g, 'RETIRE', xs[3], 48, ret ? COL.yellow : COL.dim, { align: 'center' });
+    GX.gfx.draw(g, 'shipMini', xs[3], 72);
+    GX.gfx.text(g, 'KEEP', xs[3], 92, ret ? COL.white : COL.dim, { align: 'center' });
+    GX.gfx.text(g, pad(GX.run.medals(), 3), xs[3], 118, ret ? COL.bright : COL.dim, { align: 'center' });
     GX.gfx.draw(g, 'galaxip', xs[G.cursor], 200);
     if (Math.floor(G.t * 2) % 2 === 0) {
       GX.gfx.text(g, 'FIRE TO LAUNCH', CX, 224, COL.white, { align: 'center' });
