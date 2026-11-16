@@ -53,9 +53,11 @@
     switch (ev.code) {
       case 'Digit1': case 'Numpad1': GX.game.start(1); break;
       case 'Digit2': case 'Numpad2': GX.game.start(2); break;
-      case 'Enter': case 'NumpadEnter': GX.game.start(1); break;
+      case 'Enter': case 'NumpadEnter': GX.game.select(); break;
       case 'KeyP': GX.game.togglePause(); break;
       case 'KeyM': GX.audio.setMuted(!GX.audio.muted); break;
+      case 'KeyR': GX.game.startRun(GX.run && GX.run.dailySeed()); break;
+      case 'KeyS': GX.game.shop(); break;
     }
   });
 
@@ -78,7 +80,6 @@
         el.classList.add('on');
         firstGesture();
         GX.game.setKey(name, true);
-        if (GX.game.state() === 'attract') GX.game.start(1);
       };
       var off = function (ev) {
         ev.preventDefault();

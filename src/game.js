@@ -73,7 +73,7 @@
   // ------------------------------------------------------------------ state
 
   var G = {
-    state: 'attract',   // attract | ready | play | dying | clear | over
+    state: 'attract',   // attract | ready | play | dying | clear | over | map | draft | shop
     stateT: 0,
     t: 0,
     players: [],
@@ -98,14 +98,30 @@
     hiscores: loadScores(),
     paused: false,
     input: { left: false, right: false, fire: false },
-    fireLatch: false
+    fireLatch: false,
+    mode: 'arcade',      // 'arcade' stays byte-identical to the board sim
+    node: null,          // the mission node picked on the map screen
+    cursor: 0,
+    offers: null,
+    mapRow: null,
+    prevIn: { left: false, right: false, fire: false }
   };
   G.best = G.hiscores.length ? G.hiscores[0] : 0;
 
   function newPlayer() {
-    return { score: 0, lives: LIVES, bonusGiven: false, x: CX, alive: true, invuln: 0 };
+    return { score: 0, lives: LIVES, bonusGiven: false, x: CX, alive: true, invuln: 0, shield: 0 };
   }
   function P() { return G.players[G.turn]; }
+
+  // Identity modifier set; GX.run.agg() overrides it during a run.
+  var NEUTRAL = { maxShots: 1, scoreMul: 1, speedMul: 1, swayMul: 1, diveMul: 1, fireMul: 1, shield: 0, livesBonus: 0, bait: false, flak: false, medalMul: 1 };
+  function M() { return G.mode === 'run' && GX.run ? GX.run.agg() : NEUTRAL; }
+  function edge(name) { return G.input[name] && !G.prevIn[name]; }
+  function latch() {
+    G.prevIn.left = G.input.left;
+    G.prevIn.right = G.input.right;
+    G.prevIn.fire = G.input.fire;
+  }
 
   G.stars = (function () {
     var cols = [COL.red, COL.white, COL.blue, COL.cyan, COL.dim, COL.white];
@@ -124,6 +140,7 @@
   // ------------------------------------------------------------ formation
 
   function rowCount(row) {
+    if (G.node && G.node.rows && G.node.rows.indexOf(row) < 0) return 0;
     return row === 0 ? Math.min(4, 2 + G.escapedFlags) : ROWS[row].n;
   }
   function slotX(row, col) {
@@ -153,6 +170,7 @@
     G.swayT = 0;
     G.attackTimer = demo ? 1.2 : 2.2;
     G.convoyTimer = demo ? 4 : 6;
+    if (!demo && G.node && G.node.id === 'ambush') G.convoyTimer = 0.8;
     G.freezeTimer = 0;
     G.convoy = null;
   }
@@ -167,6 +185,7 @@
   }
 
   function isSwarm() {
+    if (G.node && G.node.swarm) return true;
     return countInFormation() <= 3 || (countInFormation('blue') + countInFormation('purple')) === 0;
   }
 
@@ -198,7 +217,7 @@
   function sway(dt) {
     if (G.swayPause > 0) { G.swayPause -= dt; return G.swayX; }
     G.swayT += dt;
-    G.swayX = FORM.swayAmp * Math.sin(G.swayT * Math.PI * 2 / FORM.swayPeriod);
+    G.swayX = FORM.swayAmp * M().swayMul * Math.sin(G.swayT * Math.PI * 2 / FORM.swayPeriod);
     return G.swayX;
   }
 
@@ -299,6 +318,7 @@
   function addScore(pts) {
     var p = P();
     if (!p) return;
+    if (G.mode === 'run') pts = Math.max(1, Math.round(pts * M().scoreMul));
     p.score += pts;
     if (p.score > SCORE_MAX) p.score -= SCORE_MAX;
     if (!p.bonusGiven && p.score >= EXTRA_LIFE_AT) {
@@ -322,6 +342,7 @@
       if (diving) {
         G.freezeTimer = 1.3;              // the armada holds its fire
         if (cv) cv.done = true;
+        if (byPlayer && G.mode === 'run') GX.run.addMedal(1 + (M().bait ? 1 : 0));
       }
       GX.audio.flagBoom();
     } else {
@@ -349,6 +370,7 @@
     p.x = CX;
     p.alive = true;
     p.invuln = 2.2;
+    p.shield = G.mode === 'run' ? M().shield : 0;
     G.state = 'ready';
     G.stateT = 0;
     GX.audio.stageStart();
@@ -357,6 +379,8 @@
   function startGame(nPlayers) {
     GX.audio.unlock();
     G.nPlayers = nPlayers;
+    G.mode = 'arcade';
+    G.node = null;
     G.players = [];
     for (var i = 0; i < nPlayers; i++) G.players.push(newPlayer());
     G.turn = 0;
@@ -367,8 +391,43 @@
     startRound(true);
   }
 
+  function startRun(seedStr) {
+    GX.audio.unlock();
+    GX.run.start(seedStr);
+    G.mode = 'run';
+    G.node = null;
+    G.players = [newPlayer()];
+    G.players[0].lives += GX.run.agg().livesBonus;
+    G.turn = 0;
+    G.round = 1;
+    G.escapedFlags = 0;
+    G.fx.length = 0;
+    G.paused = false;
+    G.mapRow = null;
+    G.offers = null;
+    G.cursor = 1;
+    G.state = 'map';
+    G.stateT = 0;
+    GX.audio.stageStart();
+  }
+
+  function openShop() {
+    GX.audio.unlock();
+    G.state = 'shop';
+    G.stateT = 0;
+    G.cursor = 0;
+  }
+
+  function selectFromAttract() {
+    if (GX.run && G.cursor === 1) startRun(GX.run.dailySeed());
+    else if (GX.run && G.cursor === 2) openShop();
+    else startGame(1);
+  }
+
   function toAttract() {
     G.state = 'attract';
+    G.cursor = 0;
+    G.node = null;
     G.stateT = 0;
     G.round = 1;
     buildFormation(true);
@@ -432,7 +491,7 @@
     if (e.fireT > 0) return;
     var above = PLAYER.y - e.y;
     if (above > EBULLET.fireRange || above < 14) return;   // never from far up
-    e.fireT = difficulty().fire * (0.6 + Math.random() * 0.8);
+    e.fireT = difficulty().fire * M().fireMul * (0.6 + Math.random() * 0.8);
     var p = P();
     G.eshots.push({
       x: e.x, y: e.y + 4,
@@ -451,7 +510,7 @@
   }
 
   function updateEnemies(dt) {
-    var f = difficulty().speed;
+    var f = difficulty().speed * M().diveMul;
     var swarm = isSwarm();
     var frozen = G.freezeTimer > 0 || G.state !== 'play';
     var sx0 = sway(dt);
@@ -557,9 +616,9 @@
     var p = P();
     if (!p || !p.alive) return;
     var dir = (G.input.right ? 1 : 0) - (G.input.left ? 1 : 0);
-    p.x = clamp(p.x + dir * PLAYER.speed * dt, 10, W - 10);
+    p.x = clamp(p.x + dir * PLAYER.speed * M().speedMul * dt, 10, W - 10);
     if (p.invuln > 0) p.invuln -= dt;
-    if (G.input.fire && !G.pshots.length && !G.fireLatch) {
+    if (G.input.fire && G.pshots.length < M().maxShots && !G.fireLatch) {
       G.pshots.push({ x: p.x, y: PLAYER.y - 8 });
       GX.audio.shot();
       G.fireLatch = true;
@@ -576,6 +635,20 @@
         G.pshots.splice(i, 1);
         G.swayPause = 0.22;        // a miss makes the armada hesitate
         continue;
+      }
+      if (M().flak) {
+        var ate = false;
+        for (j = 0; j < G.eshots.length; j++) {
+          var s0 = G.eshots[j];
+          if (Math.abs(s0.x - b.x) < 3 && Math.abs(s0.y - b.y) < 5) {
+            G.eshots.splice(j, 1);
+            G.pshots.splice(i, 1);
+            GX.audio.enemyShot();
+            ate = true;
+            break;
+          }
+        }
+        if (ate) continue;
       }
       var hit = null;
       for (j = 0; j < G.enemies.length; j++) {
@@ -627,6 +700,12 @@
 
   function killPlayer() {
     var p = P();
+    if (p.shield > 0) {              // hull plating eats one hit per shield
+      p.shield--;
+      p.invuln = 1.6;
+      GX.audio.bonus();
+      return;
+    }
     p.alive = false;
     p.lives--;
     explode(p.x, PLAYER.y, 'player');
@@ -639,7 +718,7 @@
   }
 
   function update(dt) {
-    if (G.paused) return;
+    if (G.paused) { latch(); return; }
     G.t += dt;
     updateStars(dt);
     GX.audio.updatePulse(dt);
@@ -648,7 +727,12 @@
       case 'attract': {
         G.stateT += dt;
         updateEnemies(dt);
-        if (G.stateT > 1.0) {
+        if (GX.run) {
+          if (edge('left')) G.cursor = (G.cursor + 2) % 3;
+          if (edge('right')) G.cursor = (G.cursor + 1) % 3;
+          if (edge('fire')) selectFromAttract();
+        }
+        if (G.state === 'attract' && G.stateT > 1.0) {
           G.stateT = 0;
           var e = pickAttacker();
           if (e) startDive(e);
@@ -674,6 +758,7 @@
         if (!G.enemies.length) {
           G.state = 'clear';
           G.stateT = 0;
+          if (G.mode === 'run') GX.run.clearStage(G.node);
           GX.audio.stageClear();
           GX.audio.setPulse(false);
         }
@@ -689,6 +774,7 @@
             G.state = 'over';
             G.stateT = 0;
             recordScore(p.score);
+            if (G.mode === 'run') GX.run.endRun(G.round);
           } else {
             p.alive = true;
             p.x = CX;
@@ -702,7 +788,62 @@
 
       case 'clear':
         G.stateT += dt;
-        if (G.stateT > 2.0) { G.round++; startRound(false); }
+        if (G.stateT > 2.0) {
+          G.round++;
+          if (G.mode === 'run') {
+            G.node = null;
+            G.offers = GX.run.offer(G.round);
+            G.cursor = Math.min(1, G.offers.length - 1);
+            G.state = G.offers.length ? 'draft' : 'map';
+            G.mapRow = null;
+            G.stateT = 0;
+          } else {
+            startRound(false);
+          }
+        }
+        break;
+
+      case 'map':
+        G.stateT += dt;
+        if (!G.mapRow) G.mapRow = GX.run.row(G.round);
+        if (edge('left')) G.cursor = (G.cursor + 2) % 3;
+        if (edge('right')) G.cursor = (G.cursor + 1) % 3;
+        if (edge('fire')) {
+          G.node = G.mapRow[G.cursor];
+          GX.audio.coin();
+          startRound(false);
+        }
+        break;
+
+      case 'draft':
+        G.stateT += dt;
+        if (G.offers.length > 1) {
+          if (edge('left')) G.cursor = (G.cursor + G.offers.length - 1) % G.offers.length;
+          if (edge('right')) G.cursor = (G.cursor + 1) % G.offers.length;
+        }
+        if (edge('fire')) {
+          GX.run.take(G.offers[G.cursor].id);
+          GX.audio.coin();
+          G.cursor = 1;
+          G.state = 'map';
+          G.mapRow = null;
+          G.stateT = 0;
+        }
+        break;
+
+      case 'shop':
+        G.stateT += dt;
+        if (edge('left')) G.cursor = (G.cursor + 3) % 4;
+        if (edge('right')) G.cursor = (G.cursor + 1) % 4;
+        if (edge('fire')) {
+          if (G.cursor === 3) {
+            toAttract();
+          } else if (GX.run.buy(GX.run.UNLOCKS[G.cursor].id)) {
+            GX.audio.coin();
+          } else {
+            GX.audio.enemyShot();
+          }
+        }
         break;
 
       case 'over':
@@ -712,6 +853,7 @@
         break;
     }
     updateFx(dt);
+    latch();
   }
 
   // ------------------------------------------------------------------ draw
@@ -740,6 +882,7 @@
     GX.gfx.text(g, 'HIGH SCORE', CX, 1, COL.white, { align: 'center' });
     GX.gfx.text(g, pad(G.best, 6), CX, 9, COL.white, { align: 'center' });
     if (G.state === 'attract') return;
+    if (G.mode === 'run') GX.gfx.text(g, 'MEDALS ' + pad(GX.run.medals(), 3), 8, 20, COL.yellow);
     if (G.nPlayers > 1) {
       GX.gfx.text(g, (G.turn + 1) + ' UP', 8, 1, G.turn === 0 ? COL.cyan : COL.yellow);
     }
@@ -780,7 +923,15 @@
     GX.gfx.text(g, 'GALAXIAN', CX, 34, COL.yellow, { align: 'center', scale: 3 });
     GX.gfx.text(g, 'WE ARE THE GALAXIANS.', CX, 196, COL.white, { align: 'center' });
     GX.gfx.text(g, 'MISSION: DESTROY ALIENS', CX, 206, COL.cyan, { align: 'center' });
-    if (Math.floor(G.t * 1.2) % 2 === 0) {
+    if (GX.run) {
+      var modes = ['ARCADE', 'RUN', 'SHOP'];
+      var mx = [CX - 42, CX + 9, CX + 55];
+      var blink = Math.floor(G.t * 2.5) % 2 === 0;
+      for (var m = 0; m < 3; m++) {
+        GX.gfx.text(g, modes[m], mx[m], 166, m === G.cursor ? (blink ? COL.yellow : COL.bright) : COL.dim, { align: 'center' });
+      }
+      GX.gfx.text(g, 'ARROWS AND FIRE OR 1 2 ENTER', CX, 176, COL.dim, { align: 'center' });
+    } else if (Math.floor(G.t * 1.2) % 2 === 0) {
       GX.gfx.text(g, '1 PLAYER: PRESS 1', CX, 166, COL.yellow, { align: 'center' });
       GX.gfx.text(g, '2 PLAYERS: PRESS 2', CX, 176, COL.yellow, { align: 'center' });
     }
@@ -790,6 +941,70 @@
       GX.gfx.text(g, pad(G.hiscores[i] || 0, 6), CX + 22, 130 + i * 10, COL.white, { align: 'right' });
     }
     GX.gfx.text(g, 'A CANVAS TRIBUTE TO NAMCO 1979', CX, 224, COL.dim, { align: 'center' });
+  }
+
+  var NODE_SPRITE = { strike: 'blue0', ambush: 'flagship0', laststand: 'red0' };
+
+  function drawMap(g) {
+    GX.gfx.text(g, 'SELECT MISSION', CX, 10, COL.white, { align: 'center' });
+    GX.gfx.text(g, 'STAGE ' + G.round, CX, 24, COL.cyan, { align: 'center' });
+    GX.gfx.text(g, pad(GX.run.meta().medals, 3) + ' MEDALS', W - 8, 1, COL.yellow, { align: 'right' });
+    var xs = [37, 112, 187];
+    var row = G.mapRow || GX.run.row(G.round);
+    for (var i = 0; i < 3; i++) {
+      var n = row[i];
+      var sel = i === G.cursor ? COL.yellow : COL.dim;
+      GX.gfx.text(g, n.name, xs[i], 48, sel, { align: 'center' });
+      GX.gfx.draw(g, NODE_SPRITE[n.id], xs[i], 72);
+      for (var d = 0; d < n.desc.length; d++) {
+        GX.gfx.text(g, n.desc[d], xs[i], 92 + d * 10, i === G.cursor ? COL.white : COL.dim, { align: 'center' });
+      }
+      GX.gfx.text(g, n.reward + ' MEDALS', xs[i], 118, i === G.cursor ? COL.bright : COL.dim, { align: 'center' });
+    }
+    GX.gfx.draw(g, 'galaxip', xs[G.cursor], 200);
+    if (Math.floor(G.t * 2) % 2 === 0) {
+      GX.gfx.text(g, 'FIRE TO LAUNCH', CX, 224, COL.white, { align: 'center' });
+    }
+  }
+
+  function drawDraft(g) {
+    GX.gfx.text(g, 'SALVAGE ONE UPGRADE', CX, 12, COL.white, { align: 'center' });
+    GX.gfx.text(g, pad(GX.run.medals(), 3) + ' MEDALS', CX, 26, COL.yellow, { align: 'center' });
+    var xs = [37, 112, 187];
+    for (var i = 0; i < G.offers.length; i++) {
+      var m = G.offers[i];
+      GX.gfx.text(g, m.name, xs[i], 58, i === G.cursor ? COL.yellow : COL.white, { align: 'center' });
+      for (var l = 0; l < m.lines.length; l++) {
+        GX.gfx.text(g, m.lines[l], xs[i], 76 + l * 10, i === G.cursor ? COL.bright : COL.dim, { align: 'center' });
+      }
+    }
+    GX.gfx.draw(g, 'galaxip', xs[G.cursor], 190);
+    if (Math.floor(G.t * 2) % 2 === 0) {
+      GX.gfx.text(g, 'FIRE TO TAKE', CX, 224, COL.white, { align: 'center' });
+    }
+  }
+
+  function drawShop(g) {
+    GX.gfx.text(g, 'MEDAL SHOP', CX, 10, COL.yellow, { align: 'center' });
+    GX.gfx.text(g, pad(GX.run.meta().medals, 3) + ' MEDALS', CX, 24, COL.white, { align: 'center' });
+    GX.gfx.text(g, 'BEST STAGE ' + GX.run.meta().bestStage, CX, 34, COL.dim, { align: 'center' });
+    var xs = [28, 84, 140, 196];
+    for (var i = 0; i < GX.run.UNLOCKS.length; i++) {
+      var u = GX.run.UNLOCKS[i];
+      var own = GX.run.owned(u.id);
+      var sel = i === G.cursor;
+      GX.gfx.text(g, u.name, xs[i], 64, sel ? COL.bright : COL.white, { align: 'center' });
+      for (var d = 0; d < u.desc.length; d++) {
+        GX.gfx.text(g, u.desc[d], xs[i], 78 + d * 10, sel ? COL.cyan : COL.dim, { align: 'center' });
+      }
+      GX.gfx.text(g, own ? 'OWNED' : u.cost + ' MEDALS', xs[i], 104,
+        own ? COL.yellow : sel ? COL.white : COL.dim, { align: 'center' });
+    }
+    GX.gfx.text(g, 'BACK', xs[3], 64, G.cursor === 3 ? COL.bright : COL.dim, { align: 'center' });
+    GX.gfx.draw(g, 'galaxip', xs[G.cursor], 190);
+    if (Math.floor(G.t * 2) % 2 === 0) {
+      GX.gfx.text(g, 'FIRE TO BUY', CX, 224, COL.white, { align: 'center' });
+    }
   }
 
   function draw(g) {
@@ -806,6 +1021,9 @@
       drawAttract(g);
       return;
     }
+    if (G.state === 'map') { drawMap(g); return; }
+    if (G.state === 'draft') { drawDraft(g); return; }
+    if (G.state === 'shop') { drawShop(g); return; }
 
     drawEnemies(g);
     drawShots(g);
@@ -815,12 +1033,17 @@
 
     if (G.state === 'ready') {
       if (G.nPlayers > 1) GX.gfx.text(g, 'PLAYER ' + (G.turn + 1), CX, 148, COL.cyan, { align: 'center' });
+      else if (G.mode === 'run' && G.node) GX.gfx.text(g, G.node.name, CX, 148, COL.cyan, { align: 'center' });
       GX.gfx.text(g, 'READY', CX, 160, Math.floor(G.t * 8) % 2 ? COL.yellow : COL.white, { align: 'center' });
     } else if (G.state === 'clear') {
-      GX.gfx.text(g, 'ROUND ' + G.round + ' CLEAR', CX, 156,
+      GX.gfx.text(g, (G.mode === 'run' ? 'STAGE ' : 'ROUND ') + G.round + ' CLEAR', CX, 156,
         Math.floor(G.t * 6) % 2 ? COL.yellow : COL.white, { align: 'center' });
+      if (G.mode === 'run') GX.gfx.text(g, GX.run.reward() + ' MEDALS', CX, 168, COL.bright, { align: 'center' });
     } else if (G.state === 'over') {
       GX.gfx.text(g, 'GAME OVER', CX, 156, Math.floor(G.t * 4) % 2 ? COL.score : COL.white, { align: 'center' });
+      if (G.mode === 'run' && GX.run.last()) {
+        GX.gfx.text(g, GX.run.last().medals + ' MEDALS  STAGE ' + GX.run.last().stage, CX, 168, COL.yellow, { align: 'center' });
+      }
     }
     if (G.paused) GX.gfx.text(g, 'PAUSE', CX, 128, COL.cyan, { align: 'center' });
   }
@@ -838,7 +1061,24 @@
       startGame(nPlayers);
       return true;
     },
-    togglePause: function () { if (G.state !== 'attract') G.paused = !G.paused; },
+    startRun: function (seedStr) {
+      if (!GX.run || G.state !== 'attract') return false;
+      startRun(seedStr);
+      return true;
+    },
+    shop: function () {
+      if (!GX.run || G.state !== 'attract') return false;
+      openShop();
+      return true;
+    },
+    select: function () {
+      if (G.state !== 'attract') return false;
+      selectFromAttract();
+      return true;
+    },
+    togglePause: function () {
+      if (['attract', 'map', 'draft', 'shop'].indexOf(G.state) < 0) G.paused = !G.paused;
+    },
     isPaused: function () { return G.paused; },
     state: function () { return G.state; },
     update: update,

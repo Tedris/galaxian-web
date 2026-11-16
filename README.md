@@ -1,8 +1,9 @@
 # Galaxian
 
 A browser clone of Namco's **Galaxian** (1979), drawn on a single 224×256 canvas — the
-arcade board's portrait resolution (224 wide, 256 tall). No build step, no
-dependencies, no network calls: four plain scripts and one stylesheet.
+arcade board's portrait resolution (224 wide, 256 tall) — plus a roguelite **run
+mode** built on top of it. No build step, no dependencies, no network calls: five
+plain scripts and one stylesheet.
 
 ## Run
 
@@ -28,13 +29,43 @@ so a phone on the same Wi-Fi can open `http://<this-machine>:8000/`.
 | --- | --- |
 | `←` `→` / `A` `D` | Move the Galaxip |
 | `Space` / `Z` / `X` / `Ctrl` | Fire (must release and press again for the next shot) |
-| `1` / `2` | One or two players |
-| `Enter` | Start a one-player game |
+| `1` / `2` | Arcade, one or two players |
+| `R` | Start a run (the day's seed) |
+| `S` | Medal shop |
+| `Enter` | Launch the mode selected on the attract screen |
 | `P` | Pause |
 | `M` | Mute |
 
+On the map, draft and shop screens `←` `→` move the cursor and fire (or `Space`)
+selects.
+
 On touch devices a controller appears under the screen: `◀` `▶` steer on the
 left, `FIRE` on the right.
+
+## Run mode
+
+The arcade game is the room; a run strings rooms together. Pick your route on a
+three-column mission map, and between stages draft one of three salvaged
+upgrades. Death ends the run and converts its medals into permanent unlocks —
+the tension of the one-shot rule stays, every upgrade trades something away.
+
+| Mission | Field | Medals |
+| --- | --- | --- |
+| STRIKE | Full 46-alien armada, standard dive rhythm | 1 |
+| AMBUSH | Full armada, first convoy launches almost immediately | 2 |
+| LAST STAND | 30 blues in permanent swarm, no flagships, no going home | 3 |
+
+Drafts come from nine upgrades, offered at most once per run: TWIN (two shots in
+flight, −25% score), BURNER (faster Galaxip, wider formation sway), FLAK (your
+shot eats enemy shots; they fire more often), EAGLE (+25% score, faster dives),
+COLD (slow dives, −20% score), HULL (blocks one hit per round), BAIT (flagship
+kills pay an extra medal), BROKER (+50% medals), RESERVE (+2 lives, −15%
+score). Diving flagship kills always pay one medal on top.
+
+Medals also buy permanent unlocks in the shop (SWIFT, SPARE, BANKER). Meta state
+lives in `localStorage` under `galaxian-web.runmeta.v1`. The day's seed decides
+every offer and mission row, so a given date plays the same everywhere. Arcade
+mode never touches any of it — same board as always.
 
 ## The game, as modelled here
 
@@ -84,7 +115,8 @@ the top three scores of this browser are kept in `localStorage` under
 | --- | --- |
 | `src/sprites.js` | Sprite maps as character grids, one shared bug silhouette recoloured per enemy type, the 5×7 font, the explosion frames. Canvas atlases are baked once at boot. |
 | `src/audio.js` | Every sound synthesised with WebAudio oscillators and noise — no samples. |
-| `src/game.js` | State machine (attract / ready / play / dying / over), formation, dive and convoy paths, collisions, HUD. |
+| `src/run.js` | Run-mode data: medals, unlock ledger, seeded offers and mission rows, all persistence. No canvas access — game.js draws what this returns. |
+| `src/game.js` | State machine (attract / map / draft / shop / ready / play / dying / clear / over), formation, dive and convoy paths, collisions, HUD, and the run-mode screens. |
 | `src/main.js` | Integer canvas scaling, keyboard and touch input, fixed 1/60 s simulation step. |
 
 The simulation always advances in 1/60 s increments regardless of the display
